@@ -29,7 +29,7 @@ endif()
 
 if(NOT SSE2_FOUND OR NOT SSE3_FOUND OR NOT SSSE3_FOUND OR NOT SSE4_1_FOUND OR NOT SSE4_2_FOUND OR
    HAVE_AVX2_EXTENSIONS OR HAVE_AVX_EXTENSIONS)
-    option(CRYPTO3_VDF_USE_SIMD "Build Crypto3.VDF with SIMD instructions usage." FALSE)
+    option(CRYPTO3_VDF_USE_SIMD "Build Crypto3.VDF with SIMD instructions usage." TRUE)
 endif()
 
 option(CRYPTO3_VDF_BOOST "Build Crypto3.VDF with Boost.Multiprecision backend usage" TRUE)
@@ -40,20 +40,22 @@ option(CRYPTO3_VDF_MPIR "Build Crypto3.VDF with MPIR backend usage" FALSE)
 if(CRYPTO3_VDF_MPIR OR CRYPTO3_VDF_GMP OR CRYPTO3_VDF_FLINT)
     if(NOT BUILD_SHARED_LIBS)
         if(UNIX OR APPLE)
-            set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ${CMAKE_FIND_LIBRARY_SUFFIXES})
+            set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".la" ${CMAKE_FIND_LIBRARY_SUFFIXES})
         elseif(WIN32)
             set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ${CMAKE_FIND_LIBRARY_SUFFIXES})
         endif()
-        cm_find_package(MPFR REQUIRED)
     endif()
 
     if(CRYPTO3_VDF_MPIR)
         cm_find_package(MPIRXX REQUIRED)
     elseif(CRYPTO3_VDF_GMP)
+        cm_find_package(GMP REQUIRED)
         cm_find_package(GMPXX REQUIRED)
+        cm_find_package(MPFR REQUIRED)
     elseif(CRYPTO3_VDF_FLINT)
         cm_find_package(GMP REQUIRED)
         cm_find_package(FLINT REQUIRED)
+        cm_find_package(MPFR REQUIRED)
     endif()
 elseif(CRYPTO3_VDF_BOOST)
     cm_find_package(${CMAKE_WORKSPACE_NAME}_multiprecision REQUIRED)
@@ -97,15 +99,7 @@ if(CRYPTO3_VDF_CHIA)
          )
 
     list(APPEND ${CURRENT_PROJECT_NAME}_UNGROUPED_SOURCES
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/chia.hpp>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/avx512_mul1024.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/avx512_mul2048.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/avx512_mul3072.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/avx512_mul4096.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/vpmadd_mul1024.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/vpmadd_mul4096.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/vpmadd_mul2048.s>
-         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/detail/vpmadd/vpmadd_mul3072.s>)
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/nil/crypto3/vdf/chia.hpp>)
 endif()
 
 list(APPEND ${CURRENT_PROJECT_NAME}_PUBLIC_HEADERS
@@ -130,10 +124,25 @@ target_sources(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE
                ${${CURRENT_PROJECT_NAME}_HEADERS}
                ${${CURRENT_PROJECT_NAME}_SOURCES})
 
-if(SSE2_FOUND OR SSE3_FOUND OR SSSE3_FOUND OR SSE4_1_FOUND OR SSE4_2_FOUND)
-    target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-mpclmul;-mssse3")
+if(CRYPTO3_VDF_USE_SIMD)
     target_compile_definitions(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE
                                "${CMAKE_UPPER_WORKSPACE_NAME}_VDF_SIMD")
+
+    if(HAVE_AVX2_EXTENSIONS)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-mavx2")
+    elseif(HAVE_AVX_EXTENSIONS)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-mavx")
+    elseif(SSE4_2_FOUND)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-msse4;-msse4.2")
+    elseif(SSE4_1_FOUND)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-msse4;-msse4.1")
+    elseif(SSSE3_FOUND)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-mssse3")
+    elseif(SSE3_FOUND)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-msse3")
+    elseif(SSE2_FOUND)
+        target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "-msse2")
+    endif()
 endif()
 
 target_compile_options(${CMAKE_WORKSPACE_NAME}_${CURRENT_PROJECT_NAME} INTERFACE "$<$<CONFIG:RELEASE>:-O3;-fno-rtti>")

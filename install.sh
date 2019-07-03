@@ -18,7 +18,7 @@ cd build
 #sudo make -j$(nproc) uninstall
 #cd ../
 
-git clone git://github.com/wbhart/mpir.git > /dev/null 2>&1
+git clone -b 1-skylake-non-avx https://github.com/nemo1369/mpir.git > /dev/null 2>&1
 cd mpir
 #wget http://mpir.org/mpir-3.0.0.tar.bz2
 #tar xvfj mpir-3.0.0.tar.bz2
